@@ -1,0 +1,29 @@
+# ===== 第三方审计克隆仓库（约4.4GB，不属于本项目代码）=====
+research/
+
+# ===== 依赖 =====
+node_modules/
+
+# ===== 构建产物与缓存 =====
+.next/
+dist/
+build/
+*.tsbuildinfo
+
+# ===== 工具运行状态 =====
+.omx/
+.playwright-cli/
+
+# ===== 日志 =====
+*.log
+logs/
+
+# ===== 系统文件 =====
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ===== 环境变量与密钥 =====
+.env
+.env.*
+!.env.example
