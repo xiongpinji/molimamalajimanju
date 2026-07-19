@@ -1,0 +1,862 @@
+aihubcc客户 API 接入文档
+同步能力
+异步能力
+Omni 视频生成
+支持模型
+接口信息
+核心参数
+Multipart 提交（支持文件上传）
+示例：文生视频
+示例：图生视频
+示例：视频转视频（V2V）
+示例：双视频 V2V（2 个参考视频）
+轮询取片
+Python 完整示例
+注意事项
+Veo-Clean 去水印
+参数
+示例
+Seedance 2.0 视频生成
+Seedance2.0 四种生成模式（先看这里选对模式）
+Seedance2.0 480p / 720p 档规格
+Seedance2.0 错误返回
+aihubcc客户 API 接入文档​
+昨天修改
+​
+📘
+本文档面向 API 接入人员，包含鉴权、模型能力、请求参数、调用示例、任务查询和常见问题。示例中的 YOUR_BASE 与令牌请替换为服务方实际提供的信息。​
+同步能力​
+文本、部分图像与音乐接口可直接返回结果。​
+异步能力​
+视频及部分高清图像需要提交任务、轮询状态、下载结果。​
+🔐
+请妥善保管 API 令牌，不要提交到公开代码仓库或写入前端页面。​
+Omni 视频生成​
+基于 Gemini Veo 的视频生成服务，支持文生视频、图生视频（最多 5 张参考图）、视频转视频（V2V，最多 2 个参考视频）。​
+支持模型​
+模型​
+能力​
+omni-fast​
+文生视频 / 图生视频​
+omni-fast-v2v​
+视频转视频（V2V）​
+omni-fast-no-water​
+文生/图生视频（无水印）​
+omni-fast-v2v-no-water​
+V2V（无水印）​
+无水印模型输出经过自动清洗处理，完成前可能多一个 processing 阶段，稍慢。失败任务会返回明确错误信息。​
+接口信息​
+评论（0）
+项​
+说明​
+提交任务​
+POST /v1/videos（JSON 或 multipart）​
+轮询进度​
+GET /v1/videos/{task_id}​
+下载成片​
+GET /v1/videos/{task_id}/content 或返回的 data[0].url​
+鉴权​
+Authorization: Bearer sk-你的令牌​
+令牌分组​
+gemini-高速​
+核心参数​
+参数​
+类型​
+必填​
+默认​
+model​
+string​
+是​
+-​
+模型名，见上表​
+prompt​
+视频描述提示词​
+aspect_ratio​
+否​
+16:9​
+画幅比例：16:9（横）、9:16（竖）​
+seconds / duration​
+string/int​
+10​
+时长秒数（接收但当前 Gemini 固定输出约 10 秒）​
+image_url​
+单张参考图（公网 URL 或 data:image Base64）​
+first_image_url​
+首帧参考图 URL​
+last_image_url​
+末帧参考图 URL​
+video / video_url​
+V2V 源视频 URL（≤8MB、≤1920x1080）。传 2 个视频时可用这两个字段各放一个​
+videos​
+string[]​
+V2V 多源视频数组（最多 2 个，每个 ≤8MB）​
+images​
+多参考图数组（最多 5 张，每张 ≤8MB）​
+Multipart 提交（支持文件上传）​
+字段​
+input_reference​
+参考图文件上传（最多 5 张，每张 ≤8MB）​
+input_video / input_video2​
+V2V 源视频文件上传（每个 ≤8MB，最多 2 个）。传 2 个视频用 input_video+input_video2，或两个文件都用同一字段名（如都叫 video）各传一个​
+示例：文生视频​
+代码块​
+Plain Text
+复制
+curl -X POST https://YOUR_BASE/v1/videos \​
+  -H "Authorization: Bearer sk-xxx" \​
+  -H "Content-Type: application/json" \​
+  -d '{​
+    "model": "omni-fast",​
+    "prompt": "雨夜霓虹街道，镜头缓慢推进，电影感光影",​
+    "aspect_ratio": "16:9"​
+  }'​
+示例：图生视频​
+    "prompt": "保持人物一致，缓慢走动",​
+    "image_url": "https://your-cdn.com/photo.jpg",​
+示例：视频转视频（V2V）​
+# Multipart 文件上传​
+  -F "model=omni-fast-v2v" \​
+  -F "prompt=将画面风格转换为赛博朋克风" \​
+  -F "input_video=@source.mp4"​
+示例：双视频 V2V（2 个参考视频）​
+    "model": "omni-fast-v2v",​
+    "prompt": "融合两段素材，保持连续运动",​
+    "videos": ["https://your-cdn.com/a.mp4", "https://your-cdn.com/b.mp4"],​
+也可用 multipart/form-data 上传两个视频文件（字段 input_video + input_video2）：​
+# 双视频 · multipart 文件上传​
+  -F "prompt=第一个视频的人和第二个视频的人一起跳舞" \​
+  -F "input_video=@person1.mp4" \​
+  -F "input_video2=@person2.mp4"​
+轮询取片​
+curl https://YOUR_BASE/v1/videos/{task_id} \​
+  -H "Authorization: Bearer sk-xxx"​
+# 完成后:​
+# {"status":"completed","data":[{"url":"/v1/videos/{task_id}/content"}]}​
+Python 完整示例​
+import time, requests​
+BASE = "https://YOUR_BASE/v1"​
+H = {"Authorization": "Bearer sk-xxx", "Content-Type": "application/json"}​
+# 提交​
+task = requests.post(f"{BASE}/videos", headers=H, json={​
+    "prompt": "雨夜霓虹街道，镜头缓慢推进",​
+}).json()​
+task_id = task["task_id"]​
+# 轮询​
+while True:​
+    time.sleep(8)​
+    s = requests.get(f"{BASE}/videos/{task_id}", headers=H).json()​
+    if s["status"] == "completed":​
+        print("下载:", s["data"][0]["url"])​
+        break​
+    if s["status"] == "failed":​
+        print("失败:", s.get("error"))​
+    print(f"进度: {s.get('progress', 0)}%")​
+注意事项​
+•
+视频生成通常需要 1-5 分钟，请设置足够的超时时间​
+轮询间隔建议 5-10 秒​
+参考图最多 5 张，每张 ≤8MB​
+V2V 源视频：最多 2 个，每个 ≤8MB 且 ≤1920x1080​
+画幅仅支持 16:9（横屏）和 9:16（竖屏），9:16 为尽力而为模式​
+输出分辨率固定 720p​
+包含可识别真人面孔的参考图可能触发内容策略（系统会自动尝试处理）​
+被内容策略拒绝的图片会明确提示「请更换图片」​
+服务重启时进行中的任务自动恢复​
+Veo-Clean 去水印​
+上传带水印的视频，系统自动去除水印后返回。异步任务流程与视频生成一致。​
+计费​
+veo-clean​
+按秒​
+按视频实际时长计费，失败不计费。​
+固定 veo-clean​
+可省略，默认 "remove watermark"​
+input_video​
+file​
+带水印视频文件（≤20MB，必须 multipart 上传）​
+示例​
+# Multipart 上传​
+  -F "model=veo-clean" \​
+  -F "prompt=remove watermark" \​
+  -F "input_video=@watermarked.mp4"​
+# 轮询取片（同其他视频模型）​
+仅支持 multipart/form-data 提交（需上传视频文件）​
+视频文件大小限制 20MB​
+处理时间通常 20-60 秒（取决于视频长度）​
+不涉及 Gemini 视频生成，不消耗生成配额​
+Seedance 2.0 视频生成​
+💡
+部分高级参考功能维护升级中（临时）：升级期间 9 图参考暂降为 ≤4 图、全能参考「933」暂为 4 图 + ≤3 视频 + 1 音频、音频参考暂为 ≤1、@人物一致性绑定暂不可用；恢复后本提示自动撤除。其余功能正常：文生视频 / 图生视频（多图 ≤4）/ 参考视频 ≤3 / 参考音频 ×1 / 首尾帧 / 单图图生视频，480p·720p 全档位。​
+基于 Seedance 2.0 的视频生成服务。各模型调用方式完全一致，切换只需改 model 字段。支持文生视频、图生视频、多参考图（≤9）、参考视频（≤3）、参考音频（≤3）、首尾帧过渡；提供 480p / 720p / 1080p / 4K 多档清晰度。​
+版本​
+定位​
+duration 范围​
+Seedance-2.0-mini-480p​
+480p​
+mini 档，最低价位，走量首选​
+4-15（任意整数）​
+高级参考（Pro/Fast 专用）
+Videos 视频生成（固定 15 秒）
+Grok 视频
+视频参数 video_config
+Grok CLI 视频专线
+生成参数
+编辑参数（grok-imagine-video-cli-edit）
+失败提示（轮询 status:"failed"）
+各比例实际输出像素
+GPT-Image-2
+接口
+参数（文生图）
+gpt-image-2-4k（异步 4K）
+调用流程
+Seedance-2.0-fast-480p​
+经济档，快速出片​
+Seedance-2.0-480p​
+经济档，标准质量，成本最低​
+Seedance-2.0-mini-720p​
+720p​
+mini 档，高清最低价，走量首选​
+Seedance-2.0-fast-720p​
+高清快速出片，性价比高​
+Seedance-2.0-720p​
+高清标准，质量更佳​
+Seedance-2.0-1080p​
+1080p​
+超清标准，最高画质，大屏/商用首选​
+Seedance-2.0-4k​
+4K​
+4K 超高清，顶级画质，商用大屏首选​
+video-fast-720p​
+满血​
+快速出片，质量接近 Pro​
+video-pro-720p​
+最佳质量，人脸/一致性最强，正式成片首选​
+video-pro-1080p​
+超清 1080p，最高画质，大屏/商用首选​
+Seedance2.0 各档与 Pro/Fast 均支持 4-15 秒任意整数时长、全部高级参考功能（@Image/@Video/@Audio 引用）。​
+按秒计费 = 单价 × duration。失败不计费。​
+Seedance2.0 四种生成模式（先看这里选对模式）​
+无需传“模式”参数——服务端按你传入的素材字段自动判定用哪种模式。关键是按手上的素材，传对字段、传够最少必填。​
+模式​
+用途​
+最少必传​
+可叠加​
+如何触发（传哪些字段）​
+1 文生视频​
+纯文字生成​
+—​
+只传 prompt，不带素材​
+2 图生视频​
+图驱动，可多参考图​
+prompt + ≥1 张图​
+多图共 ≤9​
+reference_image_urls（单张/多张统一用它，1～9 张），不带视频；image_url 兼容保留​
+3 全能参考​
+图 + 视频 + 音频 混合参考​
+prompt + ≥1 图（再叠加视频/音频）​
+图≤9、视频≤3、音频≤3（俗称 933）​
+传 reference_videos / reference_audios，并至少配 1 张图​
+4 首尾帧​
+开始画面→结束画面过渡​
+prompt + first_image_url + last_image_url（成对）​
+同时传 first + last​
+✅ 全能参考 933：单次最多 9 张图 + 3 个视频 + 3 个音频混合参考；在 prompt 用 @image1…@image9 / @video1…@video3 / @audio1…@audio3 引用对应素材。音频/视频参考须至少配 1 张主图（仅传音频/视频不传图会失败）。​
+各模式素材数量：图生视频 1～9 张图；全能参考 1～9 图 + ≤3 视频 + ≤3 音频；首尾帧固定 2 张（首帧+尾帧），不接受额外参考图——首尾帧模式下额外传的 reference_image_urls 不会生效，要多图请用图生视频/全能参考。​
+常见错误（请避开）：​
+❌ 错误用法​
+结果​
+✅ 正确做法​
+全能参考只传视频、没传图​
+失败（提示需要参考图）​
+至少补 1 张主图到 image_url​
+想要视频参考却只传了图​
+跑成普通图生视频，没用到视频​
+参考视频放进 reference_videos​
+加音频却只传音频、没配图​
+失败（音频须搭配图/视频）​
+至少补 1 张主图到 image_url，音频放 reference_audios​
+首尾帧只传了一张​
+报错（须成对）​
+first_image_url 与 last_image_url 同时给​
+multipart 上传多张图​
+只识别到 1 张​
+多图用 JSON 传 URL/base64 数组​
+Seedance2.0 480p / 720p 档规格​
+输出：H.264 / 24fps，含 AAC 立体声同步音轨，无水印。720p 约 1280×720；480p 随画幅（4:3 约 752×560）。​
+下载：用查询响应里的 video_url 字段（可直接下载/嵌入的直链）。​
+画幅：支持 16:9 / 9:16 / 1:1 / 21:9 / 3:4 / 4:3 六种。​
+参考图（单张/多张统一用 reference_image_urls）：参考图一律放进 reference_image_urls 数组——单张就传 1 个元素，多张最多 9 个，无需区分单图/多图字段。三种传法任选 ——公网 http(s) 链接、data:image/...;base64, 直传（免图床）、multipart 文件上传（字段 image，-F image=@photo.jpg，免图床）。输入图要求：JPEG/PNG/WEBP，长边 ≤4000px（每边 ≥300px），宽高比 0.4–2.5，≤30MB。在 prompt 用 @image1…@image9 引用（@image1=数组第 1 张，依次类推）。​
+image_url 兼容保留（可选）：旧的单张主图字段 image_url 仍可用，与「reference_image_urls 传 1 张」效果完全一致（同一服务接口，效果一致。推荐新接入统一只用 reference_image_urls。若两者同时传，image_url 作为第 1 张、reference_image_urls 依次其后，合计 ≤9 张。​
+参考图命名 —— 让 @人物 对上正确的图（多角色必看）：当 prompt 里用 @名字 指代某个角色/主体时，需告诉我们每张参考图对应谁，否则服务端只能按顺序匹配、易出现「视频里的人物与参考图对不上/错乱」。两种传法任选：① 推荐 · 对象数组：reference_images 每个元素写成 {"url":"…","name":"志强"}——名字跟着自己的图走，怎么排序都不会错位。② 平行数组：reference_image_names: ["志强","清雅","张秋月"]，须与 reference_image_urls 同序、一一对应（顺序错就会绑错）。我们会据此在 prompt 最前自动补一句「图一为志强@志强，图二为清雅@清雅…」的绑定声明，你的 prompt 原文一个字都不用改。不传名字＝维持现状：不加任何声明，若要用 @人物 绑定，请你自己在 prompt 里写明「图一为X@X，图二为Y@Y」。​
+参考图角色 —— 标明「人物图 / 背景图」，治多图融合「背景被当人、莫名多出一张脸」：多图参考时，若某张只是场景/背景（不含要出镜的人物），给它标 role:"background"；人物主体图标 role:"subject"（或直接给 name 即视为主体）。我们会据此在 prompt 最前自动声明「图N为背景场景（仅作环境参考，不得从中生成、复制或衍生任何人物面孔）」——直接告诉模型这张是布景、别从里面长出人脸，显著降低「背景里凭空多出人/同一张脸重影/多余头」。两种传法任选：​
+① 推荐 · 对象数组：reference_images 元素写成 {"url":"…","role":"background"} 或 {"url":"…","name":"志强","role":"subject"}——角色跟着自己的图走、不会错位。​
+② 平行数组：reference_image_roles: ["subject","background"]，须与 reference_image_urls 同序一一对应。​
+取值：subject（人物；别名 person/face/人物/主体…）、background（背景；别名 bg/scene/背景/场景/环境…）。不标＝维持现状（仅按通用一致性约束处理）。​
+参考视频：reference_videos（或单个 reference_video）数组，≤3 个；prompt 用 @video1… 引用。视频要求：mp4/mov、单条 2–15 秒、24–60fps、≤50MB，多条总时长 ≤15 秒。​
+参考音频：reference_audios（或单个 reference_audio / audio_url）数组，≤3 个；prompt 用 @audio1… 引用（如「背景音乐用 @audio1」）。格式 mp3（支持 wav/m4a 等）。音频须搭配 ≥1 张主图（不能只传音频）。​
+首尾帧过渡：同时给 first_image_url（首帧）和 last_image_url（尾帧），生成两帧之间的过渡视频。固定 2 张、须成对；该模式不接受额外参考图（同时传的 reference_image_urls 不生效）。​
+以上 reference_image_urls / reference_videos / reference_audios / first_image_url / last_image_url 均支持公网 URL 或 base64（如 data:audio/mpeg;base64,）。​
+提示词长度：prompt ≤ 5000 字符（含 @image1/@video1/@audio1 等引用文字）；超出会立即以 400018 失败，请精简后重试。​
+字段命名完全兼容（接过 Seedance 官方接口零调整）：参考图字段等价接受 reference_image_urls（推荐）/ reference_images / extra_images / input_reference（数组），单张可用 reference_image；参考视频等价接受 reference_videos / reference_video（推荐）/ extra_videos。任选一种命名即可，语义一致——单张参考图按图生视频处理，多张自动拆为「主图 + 参考图」。​
+Seedance2.0 错误返回​
+任务失败时（轮询返回 "status":"failed"），响应里 error 为对象 {"code","message"}（message 为完整中文说明），并冗余顶层 error_code：​
+error_code​
+含义 / 处理​
+400017​
+参数或参考图不合规（模型 / 时长 / 画幅 / 图片尺寸格式）——按提示修正后重试​
+400018​
+提示词过长（超过 5000 字符上限）——缩短 prompt 后重试​
+500341​
+参考视频不符合要求（mp4/mov、单条 2-15 秒、24-60fps、≤50MB，多条总 ≤15 秒）——更换视频后重试​
+GENERATION_FAILED​
+生成失败（图片不适合 / 无明显主体，或内容被策略拦截）——更换图片或调整提示词重试​
+TIMEOUT​
+生成超时——稍后重试​
+NO_ACCOUNT​
+服务繁忙，暂无可用通道——稍后重试​
+PROMPT_BLOCKED​
+提示词含违禁内容，已拒绝生成（不消耗额度）——修改提示词后重试​
+# 失败响应示例​
+{​
+  "task_id": "task_xxx",​
+  "status": "failed",​
+  "video_url": null,​
+  "error": {​
+    "code": "400017",​
+    "message": "参考图不符合要求：需 JPEG/PNG/WEBP，长边 ≤4000px、每边 ≥300px，宽高比 0.4–2.5，且不超过 30MB，请更换后重试"​
+  },​
+  "error_code": "400017"​
+}​
+Seedance2.0：Seedance-2.0-mini-480p / Seedance-2.0-fast-480p / Seedance-2.0-480p / Seedance-2.0-mini-720p / Seedance-2.0-fast-720p / Seedance-2.0-720p / Seedance-2.0-1080p / Seedance-2.0-4k；Pro/Fast：video-fast-720p / video-pro-720p / video-pro-1080p​
+视频描述提示词；多素材时用 @image1/@video1 引用​
+16:9（默认）、9:16、1:1、21:9、3:4、4:3​
+duration​
+integer​
+时长秒数。所有模型：4-15（任意整数）​
+单张主参考图（公网 URL / base64 / multipart）​
+reference_image_urls​
+array​
+多参考图，与 image_url 合计 ≤9（Seedance2.0）。兼容别名：reference_images / extra_images / input_reference；单张可用 reference_image。元素可为 url 字符串，或 {"url","name"} 对象（推荐，用于 @人物 绑定，见素材说明）​
+reference_image_names​
+参考图对应的人物/主体名，与 reference_image_urls 同序一一对应；用于把 prompt 里的 @名字 绑定到正确的图。不传则维持现状（靠 prompt 自行声明）。防错位建议改用 reference_images:[{url,name}] 对象形式。兼容别名 reference_names​
+reference_image_roles​
+参考图角色，与 reference_image_urls 同序一一对应：subject=人物主体（锁身份）/ background=背景场景（自动声明「仅作场景，不得生成人脸」，治多图融合「背景被当人 / 多余头 / 重影」）。防错位建议改用 reference_images:[{url,name,role}] 对象形式。兼容别名 reference_roles​
+reference_videos / reference_video​
+array / string​
+参考视频 ≤3（Seedance2.0；mp4/mov,2-15s,24-60fps,≤50MB）。兼容别名：extra_videos​
+reference_audios / reference_audio​
+参考音频 ≤3（Seedance2.0；mp3 等，prompt 用 @audio1 引用，须配 ≥1 张主图）。兼容别名：audio_url / extra_audios​
+first_image_url / last_image_url​
+首尾帧过渡（成对提供，Seedance2.0）​
+高级参考（Pro/Fast 专用）​
+在 prompt 中用 @Image1、@Video1、@Audio1 引用对应素材（参考素材上限：图片 ≤9 / 视频 ≤3 / 音频 ≤3，俗称 933）。Seedance2.0 各档均支持多参考图（≤9）、参考视频（≤3）、参考音频（≤3）与首尾帧（字段同上，见「Seedance2.0 480p/720p 档规格」）；参考音频须搭配 ≥1 张主图。​
+extra_images​
+参考图数组，最多 9 张，@Image1...@Image9 引用​
+extra_videos​
+参考视频数组，最多 3 个，@Video1...@Video3 引用​
+extra_audios​
+参考音频数组，最多 3 个，@Audio1...@Audio3 引用​
+# 文生视频​
+    "model": "video-pro-720p",​
+    "aspect_ratio": "16:9",​
+    "duration": 8​
+# 多素材参考（Pro/Fast）​
+    "prompt": "以 @Image1 的人物、@Video1 的运镜，配合 @Audio1 的节奏生成广告",​
+    "image_url": "https://cdn.example.com/main.jpg",​
+    "extra_images": ["https://cdn.example.com/ref.jpg"],​
+    "extra_videos": ["https://cdn.example.com/ref.mp4"],​
+    "extra_audios": ["https://cdn.example.com/ref.mp3"],​
+    "duration": 10​
+# 480p 经济档（文生 / 图生，带 image_url 即图生视频）​
+    "model": "Seedance-2.0-fast-480p",​
+    "prompt": "夕阳下的海浪缓缓拍打沙滩，电影感",​
+    "duration": 5​
+# 480p 图生视频 · base64 直传（免图床，image_url 填 data URI）​
+  -H "Authorization: Bearer sk-xxx" -H "Content-Type: application/json" \​
+  -d '{"model":"Seedance-2.0-fast-480p","prompt":"让画面动起来","duration":5,​
+       "image_url":"data:image/png;base64,iVBORw0KGgo..."}'​
+# 480p 图生视频 · multipart 文件上传（免图床，直接传本地图）​
+  -F "model=Seedance-2.0-fast-480p" \​
+  -F "prompt=让画面动起来" \​
+  -F "duration=5" \​
+  -F "image=@/path/to/photo.jpg"​
+# 720p 高清（文生，model 换成 720p 即可）​
+  -d '{"model":"Seedance-2.0-fast-720p","prompt":"雪山日出航拍","duration":5}'​
+# 多参考图（≤9，prompt 用 @image1/@image2 引用）​
+    "model":"Seedance-2.0-fast-480p",​
+    "prompt":"@image1 的人物在 @image2 的场景中行走",​
+    "image_url":"https://cdn.example.com/person.jpg",​
+    "reference_image_urls":["https://cdn.example.com/scene.jpg"],​
+    "duration":5​
+# 多角色 · 参考图命名（让 prompt 里的 @人物 对上正确的图）​
+# 推荐：对象数组，name 跟着自己的图走，排序不会错位​
+    "model":"Seedance-2.0-720p",​
+    "prompt":"@志强 与 @清雅 在医院走廊相遇，@张秋月 从远处走来",​
+    "reference_images":[​
+      {"url":"https://cdn.example.com/zhiqiang.jpg","name":"志强"},​
+      {"url":"https://cdn.example.com/qingya.jpg","name":"清雅"},​
+      {"url":"https://cdn.example.com/qiuyue.jpg","name":"张秋月"}​
+    ],​
+    "aspect_ratio":"9:16","duration":10​
+# 等价平行数组写法（names 须与 urls 同序一一对应）：​
+#   "reference_image_urls":["...zhiqiang.jpg","...qingya.jpg","...qiuyue.jpg"],​
+#   "reference_image_names":["志强","清雅","张秋月"]​
+# 不传名字＝维持现状：需绑定请自行在 prompt 里写「图一为志强@志强，图二为清雅@清雅」​
+# 多图融合 · 标明背景图（避免背景里凭空多出人脸 / 重影 / 多余头）​
+    "prompt":"@志强 站在空旷的办公室里演讲",​
+      {"url":"https://cdn.example.com/zhiqiang.jpg","name":"志强","role":"subject"},​
+      {"url":"https://cdn.example.com/office.jpg","role":"background"}​
+    "aspect_ratio":"16:9","duration":8​
+# 等价平行数组：reference_image_urls + reference_image_names + reference_image_roles 三者同序对应​
+# 参考视频（≤3，mp4/mov 2-15s 24-60fps ≤50MB；prompt 用 @video1 引用）​
+    "prompt":"把 @image1 的人物换进 @video1 的画面",​
+    "reference_videos":["https://cdn.example.com/ref.mp4"],​
+# 首尾帧过渡（first_image_url → last_image_url）​
+    "prompt":"平滑电影感过渡",​
+    "first_image_url":"https://cdn.example.com/start.jpg",​
+    "last_image_url":"https://cdn.example.com/end.jpg",​
+Videos 视频生成（固定 15 秒）​
+OpenAI 风格 /v1/videos 异步视频生成。固定 15 秒成片，无需传时长。提交 → 轮询 → 取回成片，流程与其它视频接口一致。​
+分辨率 / 版本​
+时长​
+videos-mini-480p​
+480p 经济​
+固定 15 秒​
+videos-fast-480p​
+480p 快速​
+videos-mini-720p​
+720p 经济​
+videos-fast-720p​
+720p 快速​
+videos-standard-480p​
+480p 满血​
+videos-standard-720p​
+720p 满血​
+按次计费：每次提交按上表固定收费，与时长无关（统一固定 15 秒成片）。失败不计费。standard = 满血最佳质量；fast = 更快出片；mini = 经济档。​
+见上表六选一（standard / fast / mini × 720p / 480p；清晰度已由模型名决定，无需另传）​
+ratio​
+画幅：16:9（默认）/ 9:16 / 1:1​
+referenceImages​
+参考图 URL 数组（图生视频），最多 9 张，须公网 http/https​
+referenceVideos​
+参考视频 URL 数组，最多 3 个，总时长 ≤ 15 秒​
+referenceAudios​
+参考音频 URL 数组，最多 3 个，总时长 ≤ 15 秒，建议 MP3/WAV​
+固定 15 秒，无需传时长 / 清晰度（时长锁 15 秒、清晰度由模型名决定）。暂不支持首尾帧（first_image / last_image）。素材 URL 须公网可访问，避免防盗链 / 登录态 / 短期签名链接。​
+    "model":"videos-fast-720p",​
+    "prompt":"雨夜霓虹街道，镜头缓慢推进，电影感光影",​
+    "ratio":"16:9"​
+# 图生视频（参考图）​
+    "model":"videos-mini-720p",​
+    "prompt":"保持人物外貌一致，自然走动",​
+    "referenceImages":["https://your-cdn.com/person.jpg"]​
+# 返回拿到 task_id 后轮询​
+curl https://YOUR_BASE/v1/videos/task_xxx \​
+# status=completed 后，从 video_url 下载成片​
+Grok 视频​
+基于 xAI Grok Imagine 的图像和视频生成服务，封装为 OpenAI 兼容接口。​
+grok-imagine-video​
+文生/图生视频​
+统一接口​
+POST /v1/chat/completions（按模型自动分发图像/视频）​
+视频异步​
+也支持 POST /v1/videos（multipart 表单提交 + 轮询取片）​
+Authorization: Bearer sk-xxx​
+必须为 grok 分组​
+视频参数 video_config​
+取值​
+seconds​
+6/10/12/16/20​
+6​
+时长，最长 20 秒。越长越慢（16/20s 约 2-3 分钟）​
+size​
+720x1280 / 1280x720 / 960x960​
+720x1280​
+画幅（仅支持这 3 种）​
+public_url​
+true/false​
+false​
+建议 true，返回可直接打开的完整下载链接​
+curl https://YOUR_BASE/v1/chat/completions \​
+    "model": "grok-imagine-video",​
+    "stream": true,​
+    "messages": [{"role":"user","content":"灯塔在日落时分，海浪拍打礁石"}],​
+    "video_config": {"seconds": 10, "size": "1280x720", "public_url": true}​
+    "messages": [{"role":"user","content":[​
+      {"type":"text","text":"让画面动起来，光线柔和"},​
+      {"type":"image_url","image_url":{"url":"https://your-image.jpg"}}​
+    ]}],​
+    "video_config": {"seconds": 6, "size": "1280x720", "public_url": true}​
+视频提示词建议不超过 4500 字符（实测可正常出片；远超可能被服务端截断或拒绝）​
+参考图最多 7 张，支持 @IMAGE1...@IMAGE7 占位符​
+图生图输出固定 1024x1024​
+视频 stream:true 时推送 视频正在生成 NN% 进度​
+客户端超时建议 ≥300 秒​
+失败任务会返回明确错误信息，成功出片才。​
+Grok CLI 视频专线​
+独立视频专线，模型名 grok-imagine-video-cli，官方通道稳定性更好。仅走 /v1/videos 异步接口。​
+🆕 2026-06-17 更新：视频编辑源视频支持直接上传——除公网直链外，新增 base64 直传（data:video/mp4;base64,...）与 multipart 文件上传（-F video=@源.mp4）两种方式，不必自备公网图床，平台临时转存（约 2h 自动清理）。源视频 ≤8.7 秒、≤25MB、H.264 MP4。详见下方「视频编辑」。​
+🆕 2026-07-09 更新：瞬时失败自动重试 + 失败提示中文化——服务繁忙或瞬时异常由平台自动换号重试（客户无感）；所有轮询失败的 error.message 统一为明确中文。详见下方「失败提示」。均不计费。​
+grok-imagine-video-cli​
+grok-imagine-video-cli-edit​
+视频局部编辑​
+grok-imagine-video-1.5-cli​
+1.5 图生视频（仅单图）​
+GPT-Image-2 多档生图（1K 同步 · 2K / 3.5K 异步）
+通道 A · 1K 同步（OpenAI 兼容）
+通道 B · 2K / 3.5K 异步（同视频任务接口）
+Gemini 图像生成
+参考图（图生图 / 编辑）
+Gemini 音乐生成
+通用说明 & FAQ
+平台信息
+鉴权
+错误码
+FAQ
+Q: 视频生成需要多久？
+Q: 失败会扣费吗？
+Q: 参考图被内容策略拒绝怎么办？
+Q: 两个平台有什么区别？
+一口价：与时长、画幅无关。失败任务会返回明确错误信息。​
+grok-imagine-video-1.5-cli 为 xAI 较新的 1.5 图生模型，仅支持单张首帧图生视频——不支持文生视频、不支持多参考图（reference_images）、不支持视频编辑；size/aspect_ratio/resolution/seconds 取值与 grok-imagine-video-cli 一致。​
+提交​
+POST /v1/videos（JSON 或 multipart 均可）​
+轮询​
+grok-video-cli​
+生成参数​
+文本​
+必填，提示词​
+整数​
+文生/单图最长 15 秒；多图最长 10 秒​
+720x1280 / 1280x720​
+画幅​
+1:1/16:9/9:16/4:3/3:4/3:2/2:3​
+跟随 size​
+比例（可替代 size 指定非标比例）​
+resolution​
+480p / 720p​
+分辨率（定短边像素）​
+URL / data URL​
+单张首帧参考图​
+reference_images​
+数组，≤10 张​
+多参考图（与 input_reference 二选一）​
+编辑参数（grok-imagine-video-cli-edit）​
+必填，只写要改的内容（如 "add a gold necklace"）​
+video​
+源视频，三选一（见下），源视频 ≤8.7 秒、≤25MB、H.264 MP4​
+源视频三种传法（不必自备公网图床）：① 公网直链 {"url":"https://.../x.mp4"}；② base64 直传（免托管）{"url":"data:video/mp4;base64,..."}；③ multipart 文件上传（-F video=@源.mp4）。②③ 由平台临时转存为中立直链，约 2 小时后自动清理。​
+curl https://YOUR_BASE/v1/videos \​
+    "model": "grok-imagine-video-cli",​
+    "prompt": "hot air balloon rising over green hills at sunrise",​
+    "seconds": "10",​
+    "size": "1280x720"​
+# 视频编辑（方式①公网直链）​
+    "model": "grok-imagine-video-cli-edit",​
+    "prompt": "add a large gold necklace around her neck",​
+    "video": {"url": "https://your-source-video.mp4"}​
+# 视频编辑（方式②base64 直传，免托管）​
+  -d '{"model":"grok-imagine-video-cli-edit","prompt":"add a gold necklace","video":{"url":"data:video/mp4;base64,AAAA...."}}'​
+# 视频编辑（方式③multipart 文件上传，免托管）​
+  -F model=grok-imagine-video-cli-edit -F prompt="add a gold necklace" -F video=@源视频.mp4​
+# 1.5 图生视频（仅单图，必须带 input_reference）​
+    "model": "grok-imagine-video-1.5-cli",​
+    "prompt": "gentle camera push-in, water flowing",​
+    "input_reference": "https://your-image.jpg",​
+    "seconds": "4",​
+失败提示（轮询 status:"failed"）​
+平台已做两件事：① 瞬时错误自动重试（服务端换号重试，客户无感）；② 失败提示统一中文，error.message 直接可读。常见失败提示：​
+error.message（中文）​
+原因​
+自动重试​
+你要做的​
+生成服务繁忙（高峰限流），已自动重试仍未成功，请稍后重试。​
+xAI 容量高峰限流​
+✅​
+稍后重试​
+生成服务出现瞬时异常，已自动重试仍未成功，请稍后重试。​
+服务瞬时异常​
+生成内容未通过 xAI 内容审核，请调整提示词或画面后重试。​
+结果被内容审核拒​
+❌​
+调整提示词/画面​
+输入图片无法读取或格式不支持（需公网可访问 JPG/PNG/WebP），请检查图片链接后重试。​
+图片取不到/格式不对​
+换有效图片直链或 base64​
+源视频过长（最长 8.7 秒），请裁剪后重试。​
+编辑源 >8.7s​
+裁剪到 ≤8.7s​
+生成失败，请稍后重试。​
+其它偶发​
+均不计费（失败退款）。标「✅」的瞬时类平台已自动重试，仍不成才返回提示，客户端稍后再发一次通常即成。​
+各比例实际输出像素​
+9:16​
+480x848​
+1280x720​
+848x480​
+1:1​
+720x720​
+480x480​
+4:3​
+960x720​
+3:4​
+720x960​
+GPT-Image-2​
+文生图 / 图生图 / Chat 生图，支持三种调用方式。​
+gpt-image-2​
+gpt-image-2-4k​
+接口​
+端点​
+方式​
+/v1/images/generations​
+JSON​
+文生图​
+/v1/images/edits​
+multipart​
+图生图（参考图 + 描述）​
+/v1/chat/completions​
+Chat 对话生图​
+参数（文生图）​
+图片描述​
+默认 gpt-image-2​
+n​
+生成数量 1-4​
+1024x1024、1536x1024（横）、1024x1536（竖）、auto。size 主要控制横 / 竖 / 方比例，实际像素由模型自动分配（约 150 万像素，长边约 1536），不保证精确像素尺寸；需要精确高分辨率请用 gpt-image-2-4k​
+quality​
+auto / low / medium / high​
+response_format​
+b64_json（默认）或 url（返回完整图片地址，可直接使用）​
+# 文生图​
+curl -X POST https://YOUR_BASE/v1/images/generations \​
+    "model": "gpt-image-2",​
+    "prompt": "一只橘猫趴在窗台上晒太阳，水彩画风格",​
+    "size": "1024x1024",​
+    "quality": "high"​
+# 图生图​
+curl -X POST https://YOUR_BASE/v1/images/edits \​
+  -F "image=@reference.png" \​
+  -F "prompt=把背景改成海边日落" \​
+  -F "model=gpt-image-2"​
+# 图生图（Python：用 files= 让库自动生成 multipart boundary）​
+import requests​
+requests.post("https://YOUR_BASE/v1/images/edits",​
+    headers={"Authorization": "Bearer sk-xxx"},        # 不要手动设 Content-Type​
+    data={"model": "gpt-image-2", "prompt": "把背景改成海边日落"},​
+    files={"image": open("reference.png", "rb")})      # files= 自动带 boundary​
+# Chat 生图（参考图须用 Base64，不支持公网 URL）​
+curl -X POST https://YOUR_BASE/v1/chat/completions \​
+      {"type":"text","text":"把这张图改成赛博朋克风格"},​
+      {"type":"image_url","image_url":{"url":"data:image/jpeg;base64,&lt;BASE64&gt;"}}​
+    ]}]​
+响应时间 15-60 秒，超时建议 ≥120 秒​
+默认返回 b64_json（Base64 编码），需客户端解码保存​
+response_format: "url" 返回完整图片地址（如 https://img1.oaibox.xyz/images/...），直接使用即可，无需拼接域名；地址域名可能为 img1 或 img2，均可直接访问​
+图生图参考图提交方式：/v1/images/edits 用 multipart 上传文件（-F "image=@file.png"）；/v1/chat/completions 用 Base64（data:image/...;base64,）。暂不支持直接传公网图片 URL，请先下载文件或转 Base64 再提交​
+图生图（/v1/images/edits）必须发合法 multipart/form-data：用 HTTP 库的文件上传（curl -F、Python files=、JS FormData）让库自动生成 boundary；切勿手动设 Content-Type、手拼 body 或用 application/json，否则网关无法解析请求体，返回 500 failed to parse multipart form（非服务异常，是请求格式问题）​
+图生图上传的参考图请控制在 2K（长边 ≤ 2048）以内，超出会返回 400；更大尺寸请先压缩再上传​
+size 只决定横 / 竖 / 方比例（best-effort），不保证精确像素尺寸；需要精确高分辨率请改用 gpt-image-2-4k​
+gpt-image-2-4k（异步 4K）​
+4K 超清文生图，异步任务制（提交即返回，不占用长连接）。出图分辨率 2880×2880。成功才扣），典型耗时 1–3 分钟。​
+调用流程​
+步骤​
+① 提交​
+POST /v1/videos​
+返回 {"id":"task_xxx","status":"queued"}​
+② 轮询​
+GET /v1/videos/{id}​
+status: queued → in_progress → completed​
+③ 取图​
+完成后读取响应的 video_url 字段（4K 图片地址，可直接下载）​
+# ① 提交任务​
+  -d '{"model":"gpt-image-2-4k","prompt":"一只橘猫坐在窗台上"}'​
+# → {"id":"task_xxxx","status":"queued"}​
+# ② 轮询状态（每 5-10 秒一次）​
+curl https://YOUR_BASE/v1/videos/task_xxxx \​
+# → {"status":"completed","video_url":"https://.../xxxx.png"}​
+# ③ 完成后从 video_url 下载 4K 图片​
+异步任务：提交立即返回 task_id，请轮询获取结果，不要保持长连接​
+结果图片地址请读取 video_url 字段​
+出图分辨率固定 4K（2880×2880）​
+GPT-Image-2 多档生图（1K 同步 · 2K / 3.5K 异步）​
+GPT-Image-2 按分辨率分三档：1K 走同步接口（阻塞返回，约 30–40 秒出图）；2K / 3.5K 走异步接口（提交拿 task_id → 轮询取图，大图不占用长连接）。均支持文生图，附参考图即图生图（支持多图融合，最多 6 张，总和 ≤5MB）。​
+为什么 2K/3.5K 走异步：大图耗时长，同步会长时间占住 HTTP 连接；异步提交即返回、轮询取图更稳。1K 走同步最省事。​
+分辨率​
+调用方式​
+gpt-image-2-1k​
+~1K（默认 1024×1024）​
+同步 /v1/images/generations​
+gpt-image-2-2k​
+~2K（默认 2048×2048）​
+异步 /v1/videos​
+gpt-image-2-3.5k​
+~3.5K（默认 2880×2880）​
+通道 A · 1K 同步（OpenAI 兼容）​
+画幅，如 1024x1024 / 1536x1024；不传默认 1:1。仅决定画幅​
+参考图（图生图 / 多图融合），最多 6 张，总和 ≤5MB；单张也可用 image / image_url​
+Bash
+# 1K 同步：直接返回图片 URL​
+    "model":"gpt-image-2-1k",​
+    "prompt":"a small red apple on a white table, product photo",​
+    "size":"1024x1024"​
+# 返回: {"created":..., "data":[{"url":"https://.../xxx.jpg"}]}​
+通道 B · 2K / 3.5K 异步（同视频任务接口）​
+gpt-image-2-2k / gpt-image-2-3.5k​
+1:1（默认）/ 16:9 / 9:16 / 4:3 / 3:2 / 5:4 及竖版​
+参考图（公网 URL 或 data:image/...;base64,）；填了即图生图​
+多图参考（融合），最多 6 张，总和 ≤5MB（别名 reference_images / images）​
+# 1) 提交（异步）​
+视频生成 · 内容审查避坑指南
+一、先看这条报错
+二、六大高危雷区（命中必拒）
+三、安全改写对照表
+四、万能保险公式
+五、提交前自检清单
+    "model":"gpt-image-2-2k",​
+    "aspect_ratio":"1:1"​
+# 返回 task_id​
+# 2) 轮询，status=completed 时 video_url 即图片下载地址（PNG/JPG 直链）​
+注意：2K / 3.5K 虽走 /v1/videos，返回的是图片地址（字段名可能仍是 video_url），不是视频。请勿用游乐场 chat 验收，按上方路径实测。​
+Gemini 图像生成​
+基于 Gemini 的图像生成服务。​
+gemini-image​
+gemini-image-pro​
+通过 POST /v1/images/generations 调用，参数与 GPT-Image-2 类似。​
+    "model": "gemini-image",​
+    "prompt": "赛博朋克风格的东京夜景",​
+    "size": "1024x1024"​
+参考图（图生图 / 编辑）​
+附带参考图即可进行图生图 / 编辑。image 字段同时支持字符串与数组两种写法，取值可为公网 URL 或 data:image Base64：​
+image​
+string 或 string[]​
+单张参考图（字符串）或多张参考图（数组）均可​
+多张参考图数组（与 image 等效）​
+mask​
+蒙版图，局部重绘可选​
+    "prompt": "把这两张图融合成一张海报",​
+    "image": ["https://cdn.example.com/a.jpg", "https://cdn.example.com/b.jpg"]​
+兼容说明：image 传单张用字符串、传多张用数组均可。早期部分客户端把图片写成数组会报 cannot unmarshal array into ... image of type string，现已兼容修复，无需改动客户端。参考图最多 5 张、每张 ≤5MB。​
+Gemini 音乐生成​
+通过 Chat Completions 接口生成音乐。​
+gemini-music​
+    "model": "gemini-music",​
+    "messages": [{"role":"user","content":"创作一首轻快的电子风格BGM，适合科技产品广告"}]​
+通用说明 & FAQ​
+平台信息​
+平台​
+Base URL​
+平台 A​
+https://newapi.oairegbox.cc/v1​
+平台 B​
+https://newapi-2.oairegbox.cc/v1​
+两平台能力一致，账号与令牌独立、不互通。选择其一使用即可。​
+所有请求需携带 Authorization: Bearer sk-你的令牌 请求头。令牌在对应平台后台创建，分组必须与模型匹配（错误分组会返回"无可用渠道"）。​
+错误码​
+HTTP​
+含义​
+处理​
+200​
+成功​
+正常取用​
+成功才扣​
+400​
+参数/素材问题​
+按 message 改正​
+不计费​
+401​
+鉴权失败​
+检查令牌​
+404​
+路径错误​
+检查 URL（勿重复 /v1）​
+429​
+限速/额度不足​
+降并发或充值​
+502/5xx​
+上游临时故障​
+直接重试​
+FAQ​
+Q: 视频生成需要多久？​
+Omni 视频约 1-5 分钟，Grok 视频约 30s-3 分钟（时长越长越慢）。建议客户端超时 ≥300 秒。​
+Q: 失败会扣费吗？​
+不会。所有模型失败一律不扣费，仅成功出片/出图才计费。​
+Q: 参考图被内容策略拒绝怎么办？​
+包含可识别真人面孔的参考图可能触发 Gemini 内容策略。系统会自动尝试处理并重试。如仍失败，建议：使用非写实风格、虚构人物、侧面/背影/远景，或使用已授权的素材。​
+Q: 两个平台有什么区别？​
+能力完全一致。账号和余额独立。选其一使用，不可跨平台混用令牌。​
+视频生成 · 内容审查避坑指南​
+适用于 omni-fast / veo 系列视频模型 · 帮你避开 Google 内容审查，提高一次出片成功率​
+📊
+近期实际拒绝统计（系统自动更新 · 2026-07-17 03:07）​
+按本平台真实拒绝自动统计（已脱敏，不含任何原始提示词）：真人/版权/不安全内容 3700 次、参考图被拦截 2279 次、内容审核拒绝 217 次、违禁/侵权 12 次。​
+绝大多数为真人写实 / 版权·IP / 参考图含敏感元素——请重点对照下方雷区①⑤与「安全改写对照表」。​
+一、先看这条报错​
+如果你收到：​
+This request didn't pass content review (e.g. an identifiable real person, unsafe content, or protected IP). Retrying or switching accounts won't help. Try a non-photorealistic style, a non-identifiable or fictional subject (back/side/distant view), or rights-cleared content, then resubmit.​
+中文意思：请求没通过内容审查（可能涉及：可识别真人 / 不安全内容 / 受保护版权）。​
+这是 Google 的「确定性拒绝」​
+❌ 重试没用　❌ 换账号没用　✅ 只能改提示词或换参考图​
+别反复提交同一个请求，立刻按下面的方法改。​
+二、六大高危雷区（命中必拒）​
+🔴
+① 可识别的真人 / 名人 · 最常踩​
+"appears to show specific people" / "展示特定人物"​
+写实真人正脸、特写人像​
+任何名人、明星、政治人物、网红的名字或长相​
+上传真人照片当参考图（尤其正脸特写）​
+🔑 photorealistic（超写实）+ 真人 = 高危组合​
+🚫
+② 未成年人 · 零容忍​
+"minors in dangerous or compromising situations"​
+画面出现儿童 / 婴儿 / 青少年 / 学生​
+哪怕本意无害，未成年人 + 任何危险或暧昧情境都会被拒​
+③ 性 / 裸露 / 暧昧 · 高危​
+"sexual situations"​
+裸露、性感、情色、内衣、暧昧亲密、床戏、诱惑等​
+④ 暴力 / 危险 / 血腥 · 高危​
+"dangerous situations" / "可能涉及危险情况"​
+暴力、血腥、武器、打斗、战争、爆炸​
+自杀、自残、事故、伤口、尸体、虐待​
+危险动作 / 危险情境​
+📌
+⑤ 受保护版权（IP / 品牌） · 版权​
+"protected intellectual property" / "受保护知识产权"​
+动漫游戏角色：皮卡丘、马里奥、奥特曼、米老鼠、艾莎、蜘蛛侠、哆啦A梦、火影等​
+品牌商标：Nike、苹果、迪士尼、可口可乐、LV 等任何 logo​
+影视形象：具名电影/电视剧角色、海报、截图​
+⑥ 其他敏感主题 · 易忽略​
+医疗病症：皮肤病、痤疮、湿疹、体味、伤口、疾病 ← 真实案例踩过​
+政治 / 宗教：领导人、宗教冲突、种族议题​
+毒品 / 违法：毒品、吸毒等​
+仇恨 / 歧视言论​
+三、安全改写对照表​
+❌ 高危写法​
+✅ 安全改写​
+超写实真人 + 正脸特写​
+改 3D动画 / 插画 / 卡通 风格；或侧面、背面、远景​
+上传真人照片生成​
+不要正脸；用远景/侧背面；或转动漫/卡通风格​
+奥特曼大战怪兽​
+「一个通用的巨人英雄」（不点名具体 IP）​
+情侣处理痤疮/皮肤病​
+去掉病名，改成中性的「情侣约会」​
+小孩在火边玩耍​
+改成「成年人」，或移除危险元素​
+含名人姓名​
+改成「一位虚构的人物」​
+四、万能保险公式​
+不确定会不会被拒时，套这个组合最稳：​
+非写实风格 (non-photorealistic / 3D cartoon / illustration / anime)​
++ 虚构、不具名的主体 (fictional, non-identifiable subject)​
++ 脸部不可识别 (背面 / 侧面 / 远景)​
++ 内容健康、无版权​
+五、提交前自检清单​
+✅
+提交前过一遍，一次成功率最高​
+☐ 有没有真人/名人？→ 转非写实风格或脸部不可识别​
+☐ 有没有儿童/青少年？→ 移除或改成年人​
+☐ 有没有性/暴力/危险/血腥？→ 删除相关描述​
+☐ 有没有动漫角色/品牌/影视 IP？→ 换原创通用描述​
+☐ 有没有病症/政治/毒品等敏感词？→ 中性化​
+☐ 参考图是不是真人照片？→ 换非写实图或远景​
+两类报错要分清​
+「temporarily unavailable / 暂时不可用」 → 后端临时波动，可稍后重试​
+「didn't pass content review / 没通过内容审查」 → 确定性拒绝，必须改内容，重试无用​

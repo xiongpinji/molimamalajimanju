@@ -1,0 +1,18 @@
+{
+  "name": "molimama2-backend",
+  "version": "0.2.0",
+  "private": true,
+  "description": "茉莉妈妈2 后端服务（deepwl 平台客户端：视频 + 图像生成）",
+  "main": "src/services/deepwl/index.js",
+  "scripts": {
+    "example:text2video": "node examples/text2video.js",
+    "example:image2video": "node examples/image2video.js",
+    "example:omni": "node examples/omni-video.js",
+    "example:image": "node examples/image-gen.js",
+    "example:grok-chat": "node examples/grok-chat-video.js",
+    "selftest": "node test/deepwl.selftest.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

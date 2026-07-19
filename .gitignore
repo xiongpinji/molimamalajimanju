@@ -14,6 +14,9 @@ build/
 .omx/
 .playwright-cli/
 
+# ===== 生成的媒体产物 =====
+backend-node/output/
+
 # ===== 日志 =====
 *.log
 logs/
